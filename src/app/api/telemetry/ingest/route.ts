@@ -21,7 +21,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const payload = postSchema.parse(await request.json());
-  const result = await ingestTelemetryPoint(payload);
-  return NextResponse.json(result);
+  let payload: z.infer<typeof postSchema>;
+  try {
+    payload = postSchema.parse(await request.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
+  }
+
+  try {
+    const result = await ingestTelemetryPoint(payload);
+    return NextResponse.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

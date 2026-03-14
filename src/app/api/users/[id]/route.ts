@@ -21,8 +21,23 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const payload = patchSchema.parse(await request.json());
+  let payload: z.infer<typeof patchSchema>;
+  try {
+    payload = patchSchema.parse(await request.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
+  }
+
   const { id } = await params;
-  const user = await updateManagedProfile(id, payload);
-  return NextResponse.json({ user });
+
+  try {
+    const user = await updateManagedProfile(id, payload);
+    return NextResponse.json({ user });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    if (message.toLowerCase().includes("not found")) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -19,7 +19,12 @@ const signupSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const payload = signupSchema.parse(await request.json());
+  let payload: z.infer<typeof signupSchema>;
+  try {
+    payload = signupSchema.parse(await request.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
+  }
 
   if (!hasSupabaseEnv()) {
     const demoUser: SessionUser = {

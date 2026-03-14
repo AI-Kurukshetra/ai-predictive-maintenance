@@ -22,7 +22,7 @@ export async function POST(
 
   const { provider } = await params;
   if (!isProvider(provider)) {
-    return NextResponse.json({ error: "Unknown provider" }, { status: 404 });
+    return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
   }
 
   try {

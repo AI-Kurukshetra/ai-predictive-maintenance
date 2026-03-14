@@ -38,13 +38,16 @@ export function MetricCard({
   label,
   value,
   detail,
+  icon,
 }: {
   label: string;
   value: string;
   detail: string;
+  icon?: React.ReactNode;
 }) {
   return (
     <article className="panel metric-card">
+      {icon ? <div className="metric-card__icon">{icon}</div> : null}
       <div className="metric-card__label">{label}</div>
       <div className="metric-card__value">{value}</div>
       <div className="metric-card__detail">{detail}</div>

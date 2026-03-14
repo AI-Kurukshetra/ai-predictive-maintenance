@@ -21,8 +21,23 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const payload = patchSchema.parse(await request.json());
+  let payload: z.infer<typeof patchSchema>;
+  try {
+    payload = patchSchema.parse(await request.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
+  }
+
   const { id } = await params;
-  const sensorConfiguration = await updateSensorConfigurationRecord(id, payload);
-  return NextResponse.json({ sensorConfiguration });
+
+  try {
+    const sensorConfiguration = await updateSensorConfigurationRecord(id, payload);
+    return NextResponse.json({ sensorConfiguration });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    if (message.toLowerCase().includes("not found") || message.toLowerCase().includes("rows returned") || message.toLowerCase().includes("0 rows")) {
+      return NextResponse.json({ error: "Sensor configuration not found" }, { status: 404 });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

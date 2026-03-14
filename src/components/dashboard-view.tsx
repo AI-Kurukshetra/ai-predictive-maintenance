@@ -52,10 +52,49 @@ export function DashboardView() {
       />
 
       <div className="grid grid--metrics">
-        <MetricCard label="Assets monitored" value={String(filteredEquipment.length)} detail="Seeded across three facilities and multiple production lines." />
-        <MetricCard label="Average health" value={`${Math.round(averageHealth)}`} detail="Composite signal from vibration, thermal, acoustic, and pressure telemetry." />
-        <MetricCard label="Projected uptime" value={`${averageUptime.toFixed(1)}%`} detail="Forward-looking operating availability estimate from current equipment state." />
-        <MetricCard label="Active work orders" value={String(filteredWorkOrders.filter((item) => item.status !== "Completed").length)} detail="Operational response queue spanning triage, scheduling, and execution." />
+        <MetricCard
+          label="Assets monitored"
+          value={String(filteredEquipment.length)}
+          detail="Seeded across three facilities and multiple production lines."
+          icon={
+            <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" viewBox="0 0 22 22">
+              <circle cx="11" cy="11" r="3" />
+              <path d="M11 2v2M11 18v2M2 11h2M18 11h2M4.9 4.9l1.4 1.4M15.7 15.7l1.4 1.4M4.9 17.1l1.4-1.4M15.7 6.3l1.4-1.4" />
+            </svg>
+          }
+        />
+        <MetricCard
+          label="Average health"
+          value={`${Math.round(averageHealth)}`}
+          detail="Composite signal from vibration, thermal, acoustic, and pressure telemetry."
+          icon={
+            <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" viewBox="0 0 22 22">
+              <path d="M2 12h4l3-7 4 14 3-10 2 3h4" />
+            </svg>
+          }
+        />
+        <MetricCard
+          label="Projected uptime"
+          value={`${averageUptime.toFixed(1)}%`}
+          detail="Forward-looking operating availability estimate from current equipment state."
+          icon={
+            <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" viewBox="0 0 22 22">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M11 7v4l3 3" />
+            </svg>
+          }
+        />
+        <MetricCard
+          label="Active work orders"
+          value={String(filteredWorkOrders.filter((item) => item.status !== "Completed").length)}
+          detail="Operational response queue spanning triage, scheduling, and execution."
+          icon={
+            <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" viewBox="0 0 22 22">
+              <rect height="17" rx="2" width="14" x="4" y="3" />
+              <path d="M8 3v1a3 3 0 0 0 6 0V3M8 12l2 2 4-4" />
+            </svg>
+          }
+        />
       </div>
 
       <div className="hero-grid">

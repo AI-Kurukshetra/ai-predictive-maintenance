@@ -43,7 +43,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const payload = createSchema.parse(await request.json());
+  let payload: z.infer<typeof createSchema>;
+  try {
+    payload = createSchema.parse(await request.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
+  }
+
   const workOrder = payload.alertId
     ? await createWorkOrderFromAlert(payload.alertId, currentUser)
     : await createWorkOrder(currentUser, {

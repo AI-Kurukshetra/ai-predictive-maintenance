@@ -350,8 +350,11 @@ export async function updateAlertStatus(alertId: string, status: AlertStatus) {
     .select("id, equipment_id, facility_id, severity, title, summary, status, recommended_action, created_at")
     .single();
 
-  if (response.error || !response.data) {
-    throw new Error(response.error?.message ?? "Failed to update alert");
+  if (response.error) {
+    throw new Error(response.error.code === "PGRST116" ? "Alert not found" : (response.error.message ?? "Failed to update alert"));
+  }
+  if (!response.data) {
+    throw new Error("Alert not found");
   }
 
   return mapAlert(response.data);
@@ -545,8 +548,11 @@ export async function updateWorkOrder(
     .select("id, equipment_id, facility_id, source_alert_id, title, assignee, due_date, priority, status, notes, parts_required")
     .single();
 
-  if (response.error || !response.data) {
-    throw new Error(response.error?.message ?? "Failed to update work order");
+  if (response.error) {
+    throw new Error(response.error.code === "PGRST116" ? "Work order not found" : (response.error.message ?? "Failed to update work order"));
+  }
+  if (!response.data) {
+    throw new Error("Work order not found");
   }
 
   return mapWorkOrder(response.data);
@@ -728,8 +734,11 @@ export async function updateFacilityRecord(
     .select("id, name, region, timezone, lines, uptime_target, site_lead")
     .single();
 
-  if (response.error || !response.data) {
-    throw new Error(response.error?.message ?? "Failed to update facility");
+  if (response.error) {
+    throw new Error(response.error.code === "PGRST116" ? "Facility not found" : (response.error.message ?? "Failed to update facility"));
+  }
+  if (!response.data) {
+    throw new Error("Facility not found");
   }
 
   return mapFacility(response.data);
@@ -769,8 +778,11 @@ export async function updateSensorConfigurationRecord(
     .select("id, facility_id, sensor_type, coverage, last_calibrated_at, gateway_status")
     .single();
 
-  if (response.error || !response.data) {
-    throw new Error(response.error?.message ?? "Failed to update sensor configuration");
+  if (response.error) {
+    throw new Error(response.error.code === "PGRST116" ? "Sensor configuration not found" : (response.error.message ?? "Failed to update sensor configuration"));
+  }
+  if (!response.data) {
+    throw new Error("Sensor configuration not found");
   }
 
   return mapSensorConfiguration(response.data);
