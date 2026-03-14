@@ -5,17 +5,9 @@ import { useState } from "react";
 
 import { facilities, users } from "@/lib/seed-data";
 
-type AuthMode = "demo" | "supabase";
-
-export function LoginPageView({
-  authMode,
-  defaultPassword,
-}: {
-  authMode: AuthMode;
-  defaultPassword: string;
-}) {
-  const [email, setEmail] = useState(users[0]?.email ?? "");
-  const [password, setPassword] = useState(defaultPassword);
+export function LoginPageView() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -63,11 +55,7 @@ export function LoginPageView({
             <span>Reports, facilities, and connector controls</span>
           </article>
         </div>
-        <div className="auth-story__note">
-          {authMode === "supabase"
-            ? `Supabase live mode is active. Seeded personas use password ${defaultPassword}.`
-            : "Demo mode is active. Select a seeded persona or sign in with email to create a demo session."}
-        </div>
+        <div className="auth-story__note">Use your workspace credentials to continue into the platform.</div>
       </div>
 
       <div className="panel auth-form-card">
@@ -76,7 +64,6 @@ export function LoginPageView({
             <div className="eyebrow">Operator Sign In</div>
             <h2>Continue into the platform</h2>
           </div>
-          <span className="pill">{authMode === "supabase" ? "Live auth" : "Demo auth"}</span>
         </div>
 
         <form
@@ -92,29 +79,6 @@ export function LoginPageView({
             {submitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
-
-        <div className="auth-divider">Seeded personas</div>
-
-        <div className="auth-persona-grid">
-          {users.map((user) => (
-            <button
-              className="auth-persona-card"
-              key={user.id}
-              onClick={() => {
-                void submitLogin(
-                  authMode === "supabase"
-                    ? { email: user.email, password: defaultPassword }
-                    : { demoUserId: user.id, email: user.email },
-                );
-              }}
-              type="button"
-            >
-              <strong>{user.name}</strong>
-              <span>{user.role}</span>
-              <small>{user.email}</small>
-            </button>
-          ))}
-        </div>
 
         {error ? <div className="error-state">{error}</div> : null}
 

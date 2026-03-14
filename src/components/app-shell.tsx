@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useDemoStore } from "@/lib/demo-store";
+
+const sidebarPreferenceKey = "intellimaintain-shell-sidebar-collapsed";
+const mobileBreakpoint = "(max-width: 1080px)";
 
 const navigation = [
   {
@@ -13,8 +16,10 @@ const navigation = [
     hint: "Fleet health",
     icon: (
       <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 16 16">
-        <rect height="5" rx="1.2" width="5" x="1.5" y="1.5" /><rect height="5" rx="1.2" width="5" x="9.5" y="1.5" />
-        <rect height="5" rx="1.2" width="5" x="1.5" y="9.5" /><rect height="5" rx="1.2" width="5" x="9.5" y="9.5" />
+        <rect height="5" rx="1.2" width="5" x="1.5" y="1.5" />
+        <rect height="5" rx="1.2" width="5" x="9.5" y="1.5" />
+        <rect height="5" rx="1.2" width="5" x="1.5" y="9.5" />
+        <rect height="5" rx="1.2" width="5" x="9.5" y="9.5" />
       </svg>
     ),
     permission: "dashboard:view",
@@ -106,7 +111,7 @@ const navigation = [
   {
     href: "/settings",
     label: "Settings",
-    hint: "Profile and config",
+    hint: "Account and controls",
     icon: (
       <svg aria-hidden="true" fill="none" strokeLinecap="round" strokeWidth="1.5" viewBox="0 0 16 16">
         <path stroke="currentColor" d="M2 4.5h2.5M6.5 4.5h7.5M2 8h6M10 8h4M2 11.5h4M8 11.5h6" />
@@ -120,10 +125,6 @@ const navigation = [
 ];
 
 function getWorkspaceLabel(pathname: string) {
-  if (pathname === "/") {
-    return "Dashboard";
-  }
-
   const match = navigation.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
   return match?.label ?? "Workspace";
 }
@@ -132,6 +133,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return window.localStorage.getItem(sidebarPreferenceKey) === "true";
+  });
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const {
     activeFacilityId,
     facilities,
@@ -140,7 +149,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     alerts,
     workOrders,
     currentUser,
-    mode,
     logout,
     can,
     loading,
@@ -148,16 +156,71 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     refresh,
   } = useDemoStore();
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(mobileBreakpoint);
+
+    const syncViewport = () => {
+      const mobile = mediaQuery.matches;
+      setIsMobileViewport(mobile);
+      if (!mobile) {
+        setSidebarOpen(false);
+      }
+    };
+
+    syncViewport();
+
+    const listener = () => syncViewport();
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", listener);
+      return () => mediaQuery.removeEventListener("change", listener);
+    }
+
+    mediaQuery.addListener(listener);
+    return () => mediaQuery.removeListener(listener);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(sidebarPreferenceKey, sidebarCollapsed ? "true" : "false");
+  }, [sidebarCollapsed]);
+
   const isAuthPage = pathname === "/login" || pathname === "/signup" || pathname === "/unauthorized";
   const isPublicPage = pathname === "/";
   const visibleNavigation = navigation.filter((item) => can(item.permission));
   const workspaceLabel = getWorkspaceLabel(pathname);
   const openAlerts = alerts.filter((item) => item.status === "Open").length;
   const activeOrders = workOrders.filter((item) => item.status !== "Completed").length;
+  const sidebarExpanded = isMobileViewport ? sidebarOpen : !sidebarCollapsed;
   const scopedFacilityName =
     activeFacilityId === "all"
       ? "All facilities"
-      : facilities.find((facility) => facility.id === activeFacilityId)?.name ?? "Facility scope";
+      : facilities.find((facility) => facility.id === activeFacilityId)?.name ?? "Facility";
+
+  function handleSignOut() {
+    setSigningOut(true);
+    void logout()
+      .then(() => {
+        window.location.assign("/login");
+      })
+      .finally(() => {
+        setSigningOut(false);
+      });
+  }
+
+  function handleSidebarToggle() {
+    setAccountMenuOpen(false);
+    if (isMobileViewport) {
+      setSidebarOpen((open) => !open);
+      return;
+    }
+    setSidebarCollapsed((collapsed) => !collapsed);
+  }
 
   if (isAuthPage || isPublicPage) {
     return (
@@ -173,9 +236,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="main__inner">
           <section className="panel panel--strong auth-card">
             <div className="spinner" />
-            <div className="eyebrow">Initializing Platform</div>
-            <h1>Loading IntelliMaintain Pro</h1>
-            <p className="subtle">Verifying the session and loading live platform data before the workspace is shown.</p>
+            <div className="eyebrow">Loading</div>
+            <h1>Opening your workspace</h1>
+            <p className="subtle">We are loading your operations data.</p>
           </section>
         </div>
       </main>
@@ -187,26 +250,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="main">
         <div className="main__inner">
           <section className="panel panel--strong auth-card">
-            <div className="eyebrow">Bootstrap Failed</div>
-            <h1>We could not initialize the platform workspace</h1>
+            <div className="eyebrow">Unavailable</div>
+            <h1>We could not open the workspace</h1>
             <p className="subtle">{error}</p>
             <div className="split">
               <button className="button" onClick={() => void refresh()} type="button">
-                Retry bootstrap
+                Retry
               </button>
-              <button
-                className="button button--ghost"
-                onClick={() => {
-                  setSigningOut(true);
-                  void logout().then(() => {
-                    window.location.assign("/login");
-                  }).finally(() => {
-                    setSigningOut(false);
-                  });
-                }}
-                type="button"
-              >
-                {signingOut ? "Signing Out..." : "Return to login"}
+              <button className="button button--ghost" onClick={handleSignOut} type="button">
+                {signingOut ? "Signing out..." : "Back to sign in"}
               </button>
             </div>
           </section>
@@ -216,7 +268,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell${sidebarCollapsed && !isMobileViewport ? " shell--sidebar-collapsed" : ""}`}>
       <button
         aria-hidden={!sidebarOpen}
         className={`shell__overlay${sidebarOpen ? " shell__overlay--visible" : ""}`}
@@ -225,7 +277,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         type="button"
       />
 
-      <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`}>
+      <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}${sidebarCollapsed && !isMobileViewport ? " sidebar--collapsed" : ""}`}>
         <div className="sidebar__scroll">
           <div className="sidebar__header">
             <div className="brand">
@@ -236,29 +288,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               <div className="brand__title">
                 <strong>IntelliMaintain Pro</strong>
-                <span>Predictive Maintenance</span>
               </div>
-              <button className="button button--ghost sidebar__close" onClick={() => setSidebarOpen(false)} type="button" style={{ marginLeft: "auto", minHeight: 32, padding: "4px 10px", fontSize: "0.8rem" }}>
-                ✕
-              </button>
             </div>
           </div>
 
           <section className="sidebar__section">
-            <div className="eyebrow">Navigate</div>
-            <nav className="nav" aria-label="Primary">
+            <nav aria-label="Primary" className="nav">
               {visibleNavigation.map((item) => {
-                const isActive = pathname === item.href || (pathname === "/" && item.href === "/dashboard");
+                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <Link
                     className={`nav__link${isActive ? " nav__link--active" : ""}`}
                     href={item.href}
                     key={item.href}
-                    onClick={() => setSidebarOpen(false)}
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      setAccountMenuOpen(false);
+                    }}
+                    title={sidebarCollapsed && !isMobileViewport ? item.label : undefined}
                   >
-                    <span className="nav__icon">
-                      {item.icon}
-                    </span>
+                    <span className="nav__icon">{item.icon}</span>
                     <span className="nav__meta">
                       <span className="nav__label">{item.label}</span>
                       <span className="nav__hint">{item.hint}</span>
@@ -268,97 +317,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               })}
             </nav>
           </section>
-
-          <section className="sidebar__section">
-            <div className="eyebrow">Session</div>
-            <div className="panel panel--compact">
-              <div className="sidebar-profile">
-                <div>
-                  <strong>{currentUser?.name ?? "No session"}</strong>
-                  <div className="subtle">{currentUser?.email ?? "No session"}</div>
-                </div>
-                <span className="pill">{currentUser?.role ?? "Guest"}</span>
-              </div>
-              <div className="split">
-                <div className="sidebar-stat">
-                  <span>Mode</span>
-                  <strong>{mode}</strong>
-                </div>
-                <div className="sidebar-stat">
-                  <span>Scope</span>
-                  <strong>{activeFacilityId === "all" ? "Global" : "Focused"}</strong>
-                </div>
-              </div>
-              {currentUser ? (
-                <Link className="button button--ghost" href="/settings" onClick={() => setSidebarOpen(false)}>
-                  Manage profile
-                </Link>
-              ) : null}
-            </div>
-          </section>
-
-          <section className="sidebar__section">
-            <div className="eyebrow">Facility Scope</div>
-            <div className="panel panel--compact">
-              <select
-                aria-label="Active facility"
-                className="select"
-                value={activeFacilityId}
-                onChange={(event) => setActiveFacilityId(event.target.value)}
-              >
-                <option value="all">All facilities</option>
-                {facilities.map((facility) => (
-                  <option key={facility.id} value={facility.id}>
-                    {facility.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </section>
-
-          <section className="sidebar__section">
-            <div className="eyebrow">Ops Snapshot</div>
-            <div className="split split--two">
-              <div className="sidebar-stat sidebar-stat--strong">
-                <span>Open alerts</span>
-                <strong>{openAlerts}</strong>
-              </div>
-              <div className="sidebar-stat sidebar-stat--strong">
-                <span>Active work</span>
-                <strong>{activeOrders}</strong>
-              </div>
-            </div>
-          </section>
-
-          <section className="sidebar__section sidebar__footer">
-            <div className="sidebar__upgrade">
-              <div className="sidebar__upgrade__icon" aria-hidden="true">
-                <svg fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 18 18">
-                  <path d="M9 1l2.2 4.5L16 6.4l-3.5 3.4.8 4.8L9 12.3l-4.3 2.3.8-4.8L2 6.4l4.8-.9z" />
-                </svg>
-              </div>
-              <strong>IntelliMaintain Pro</strong>
-              <p>Unlock advanced AI predictions, multi-site analytics, and enterprise integrations.</p>
-              <button className="button button--inline" type="button">Upgrade plan</button>
-            </div>
-            <button className="button button--ghost" onClick={resetDemo} type="button">
-              Reset demo data
-            </button>
-            <button
-              className="button button--ghost"
-              onClick={() => {
-                setSigningOut(true);
-                void logout().then(() => {
-                  window.location.assign("/login");
-                }).finally(() => {
-                  setSigningOut(false);
-                });
-              }}
-              type="button"
-            >
-              {signingOut ? "Signing out..." : "Sign out"}
-            </button>
-          </section>
         </div>
       </aside>
 
@@ -366,36 +324,105 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="main__inner">
           <section className="workspace-bar">
             <div className="workspace-bar__left">
-              <button className="button button--ghost button--inline workspace-bar__menu" onClick={() => setSidebarOpen(true)} type="button" style={{ minHeight: 36, padding: "4px 12px", width: "auto" }}>
-                <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" viewBox="0 0 20 20" width="18" height="18">
-                  <path d="M3 5h14M3 10h14M3 15h14" />
+              <button
+                aria-expanded={sidebarExpanded}
+                aria-label={isMobileViewport ? (sidebarOpen ? "Hide menu" : "Show menu") : (sidebarCollapsed ? "Expand menu" : "Collapse menu")}
+                className="workspace-bar__menu"
+                onClick={handleSidebarToggle}
+                type="button"
+              >
+                <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" viewBox="0 0 20 20" width="18" height="18">
+                  <path d="M4 4.5h3.5v11H4z" />
+                  {sidebarExpanded ? <path d="M13 6.5 9.5 10 13 13.5" /> : <path d="m10 6.5 3.5 3.5-3.5 3.5" />}
                 </svg>
               </button>
               <div className="workspace-bar__titles">
-                <h2 style={{ margin: 0, fontSize: "1.05rem" }}>{workspaceLabel}</h2>
-                <span className="workspace-bar__subtitle">{scopedFacilityName} · {mode} mode</span>
+                <h2>{workspaceLabel}</h2>
+                <span className="workspace-bar__subtitle">{scopedFacilityName}</span>
               </div>
             </div>
-            <div className="workspace-bar__actions">
+
+            <div className="workspace-bar__center">
+              <div className="workspace-chip workspace-chip--select">
+                <span>Facility</span>
+                <select
+                  aria-label="Active facility"
+                  className="select workspace-select"
+                  value={activeFacilityId}
+                  onChange={(event) => setActiveFacilityId(event.target.value)}
+                >
+                  <option value="all">All facilities</option>
+                  {facilities.map((facility) => (
+                    <option key={facility.id} value={facility.id}>
+                      {facility.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="workspace-chip">
                 <span>Alerts</span>
                 <strong>{openAlerts}</strong>
               </div>
               <div className="workspace-chip">
-                <span>Active work</span>
+                <span>Work orders</span>
                 <strong>{activeOrders}</strong>
               </div>
-              <button className="button button--ghost button--inline" onClick={() => void refresh()} type="button" style={{ minHeight: 36, padding: "4px 12px", width: "auto", fontSize: "0.82rem" }}>
+            </div>
+
+            <div className="workspace-bar__actions">
+              <button className="button button--ghost button--inline" onClick={() => void refresh()} type="button">
                 Refresh
               </button>
-              <button className="topbar-bell" aria-label="Notifications" type="button">
-                <svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" viewBox="0 0 16 16">
-                  <path d="M8 1.5a4.5 4.5 0 0 1 4.5 4.5V8.5l1 2H2.5l1-2V6A4.5 4.5 0 0 1 8 1.5z" />
-                  <path d="M6.5 12a1.5 1.5 0 0 0 3 0" />
-                </svg>
-              </button>
-              <div className="topbar-avatar" aria-label={currentUser?.name ?? "User"} title={currentUser?.name ?? "User"}>
-                {currentUser?.name ? currentUser.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "U"}
+              <div className={`account-menu${accountMenuOpen ? " account-menu--open" : ""}`}>
+                <button
+                  aria-expanded={accountMenuOpen}
+                  aria-haspopup="menu"
+                  className="account-menu__trigger"
+                  onClick={() => setAccountMenuOpen((open) => !open)}
+                  type="button"
+                >
+                  <div className="topbar-avatar" aria-label={currentUser?.name ?? "User"} title={currentUser?.name ?? "User"}>
+                    {currentUser?.name ? currentUser.name.split(" ").map((name) => name[0]).join("").slice(0, 2).toUpperCase() : "U"}
+                  </div>
+                  <div className="account-menu__summary">
+                    <strong>{currentUser?.name ?? "No session"}</strong>
+                    <span>{currentUser?.role ?? "User"}</span>
+                  </div>
+                </button>
+
+                {accountMenuOpen ? (
+                  <div className="account-menu__panel" role="menu">
+                    <div className="account-menu__header">
+                      <strong>{currentUser?.name ?? "No session"}</strong>
+                      <span>{currentUser?.email ?? "No session"}</span>
+                    </div>
+                    <div className="account-menu__actions">
+                      <Link className="button button--ghost" href="/settings" onClick={() => setAccountMenuOpen(false)}>
+                        Account
+                      </Link>
+                      <button
+                        className="button button--ghost"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          resetDemo();
+                        }}
+                        type="button"
+                      >
+                        Reset data
+                      </button>
+                      <button
+                        className="button button--ghost"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          handleSignOut();
+                        }}
+                        type="button"
+                      >
+                        {signingOut ? "Signing out..." : "Sign out"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </section>
